@@ -217,6 +217,7 @@ class SimProcessor(DataProcessor):
 
         text = df.iloc[:, 1].tolist()
         label = df.iloc[:, 0].tolist()
+
         train_data = []
         for idx, (t, l) in enumerate(zip(text, label)):
             train_data.append(InputExample(
@@ -846,28 +847,28 @@ def main(_):
             drop_remainder=predict_drop_remainder)
 
         result = estimator.predict(input_fn=predict_input_fn)
+        
+        sim = SimProcessor()
+        labels = sim.get_labels(FLAGS.data_dir)
+        prediction_result = []
 
         output_predict_file = os.path.join(
             FLAGS.output_dir, "test_results.tsv")
         with tf.gfile.GFile(output_predict_file, "w") as writer:
-            num_written_lines = 0
             tf.logging.info("***** Predict results *****")
-            for (i, prediction) in enumerate(result):
-                probabilities = prediction["probabilities"]
-                if i >= num_actual_predict_examples:
-                    break
-                output_line = "\t".join(
-                    str(class_probability)
-                    for class_probability in probabilities) + "\n"
-                writer.write(output_line)
-                num_written_lines += 1
-        assert num_written_lines == num_actual_predict_examples
+            for prediction in result:
+                prediction = prediction['probabilities']
+                prediction_result.append(labels[list(prediction).index(max(prediction))])
+            file_path = os.path.join(FLAGS.data_dir, 'test.tsv')
+            df = pd.read_csv(file_path, sep='\t').fillna('')
+            df.loc[:, 'bert'] = prediction_result
+            df.to_csv(file_path, index=False, sep='\t')
 
 
 if __name__ == "__main__":
-    flags.mark_flag_as_required("data_dir")
-    flags.mark_flag_as_required("task_name")
-    flags.mark_flag_as_required("vocab_file")
-    flags.mark_flag_as_required("bert_config_file")
-    flags.mark_flag_as_required("output_dir")
+    # flags.mark_flag_as_required("data_dir")
+    # flags.mark_flag_as_required("task_name")
+    # flags.mark_flag_as_required("vocab_file")
+    # flags.mark_flag_as_required("bert_config_file")
+    # flags.mark_flag_as_required("output_dir")
     tf.app.run()
